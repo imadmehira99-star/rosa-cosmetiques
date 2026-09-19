@@ -1,36 +1,66 @@
-from flask import Flask, render_template, jsonify
+import os
+import json
+from flask import Flask, render_template, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
 
 app = Flask(__name__)
-app.json.ensure_ascii = False
 
-# الربط باستخدام اسم المفتاح الحقيقي المكتمل
-cred = credentials.Certificate("cosmeticstore-98acc-firebase-adminsdk-fbsvc-6465d8febd.json")
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# تهيئة الاتصال بـ Firebase بشكل مرن
+db = None
+try:
+    if not firebase_admin._apps:
+        # 1. البحث عن مفتاح Firebase داخل متغيرات بيئة Render
+        env_creds = os.environ.get('FIREBASE_CREDENTIALS')
+        if env_creds:
+            cred_dict = json.loads(env_creds)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("✅ تم الاتصال بـ Firebase عبر Render Environment Variable")
+        else:
+            # 2. البحث عن ملف JSON محلي على الجهاز
+            json_files = [f for f in os.listdir('.') if f.endswith('.json') and any(k in f.lower() for k in ['firebase', 'admin', 'cosmetic'])]
+            if json_files:
+                cred = credentials.Certificate(json_files[0])
+                firebase_admin.initialize_app(cred)
+                print(f"✅ تم الاتصال بـ Firebase عبر الملف المحلي: {json_files[0]}")
+            else:
+                print("⚠️ لم يتم العثور على مفتاح Firebase!")
+
+    if firebase_admin._apps:
+        db = firestore.client()
+except Exception as e:
+    print(f"❌ خطأ في تهيئة Firebase: {e}")
 
 @app.route('/')
-def home():
+def index():
     return render_template('index.html')
 
-@app.route('/api/product/<barcode>')
-def get_product(barcode):
+@app.route('/get_product', methods=['GET'])
+def get_product():
+    barcode = request.args.get('barcode', '').strip()
+    if not barcode:
+        return jsonify({'success': False, 'message': 'الباركود فارغ'}), 400
+
+    if not db:
+        return jsonify({'success': False, 'message': 'السيرفر غير متصل بـ Firebase'}), 500
+
     try:
-        doc_ref = db.collection('products').document(barcode)
-        doc = doc_ref.get()
+        # البحث بـ Document ID
+        doc = db.collection('products').document(barcode).get()
         if doc.exists:
-            data = doc.to_dict()
-            return jsonify({
-                "success": True,
-                "name_ar": data.get("name_ar", "-"),
-                "name_fr": data.get("name_fr", "-"),
-                "price": str(data.get("price", "-")),
-                "description": data.get("description", "-")
-            })
-        return jsonify({"success": False, "message": "المنتج غير موجود في قاعدة البيانات"}), 404
+            return jsonify({'success': True, 'product': doc.to_dict()})
+
+        # البحث داخل حقل barcode
+        query = db.collection('products').where('barcode', '==', barcode).limit(1).stream()
+        for p in query:
+            return jsonify({'success': True, 'product': p.to_dict()})
+
+        return jsonify({'success': False, 'message': 'المنتج غير موجود'})
+
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        print(f"Firestore Error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
