@@ -110,14 +110,14 @@
     <div class="title">🌹 ROSA COSMÉTIQUES 🌹</div>
     <div class="subtitle">واجهتك الأولى للعناية والجمال - كاشف الأسعار</div>
 
-    <!-- زر فتح الكاميرا -->
+    <!-- زر فتح/إغلاق الكاميرا -->
     <button type="button" class="btn-camera" id="start-scan-btn">📷 فتح الكاميرا للمسح الآلي</button>
     
     <!-- نافذة معاينة الكاميرا -->
     <div id="reader" style="display: none;"></div>
 
     <!-- حقل إدخال الباركود -->
-    <input type="text" id="barcode-input" class="input-box" placeholder="امسح الباركود هنا..." autofocus>
+    <input type="text" id="barcode-input" class="input-box" placeholder="امسح الباركود هنا..." autofocus autocomplete="off">
 
     <!-- صندوق عرض النتائج -->
     <div class="result-box">
@@ -140,13 +140,26 @@
     const nameFr = document.getElementById('name-fr');
     const priceVal = document.getElementById('price-val');
     const description = document.getElementById('description');
+    let html5QrCode = null;
 
-    // دالة البحث واستدعاء السيرفر
+    // إصدار صوت صفارة عند القراءة الناجحة
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        } catch(e) {}
+    }
+
+    // دالة استدعاء البيانات من السيرفر
     async function fetchProductInfo(barcode) {
         const cleanBarcode = barcode.trim();
         if (!cleanBarcode) return;
 
-        // إظهار حالة البحث للمستخدم
         nameAr.textContent = 'جاري البحث...';
         nameFr.textContent = 'Recherche...';
         priceVal.textContent = '- دج';
@@ -157,6 +170,7 @@
             const data = await response.json();
 
             if (data.success && data.product) {
+                playBeep();
                 nameAr.textContent = data.product.name_ar || '-';
                 nameFr.textContent = data.product.name_fr || '-';
                 priceVal.textContent = `${data.product.price} دج`;
@@ -172,41 +186,83 @@
             nameAr.textContent = 'خطأ في الاتصال';
             nameFr.textContent = 'Erreur serveur';
             priceVal.textContent = '- دج';
-                description.textContent = 'تأكد من اتصال السيرفر بـ Firebase';
+            description.textContent = 'تأكد من اتصال السيرفر بـ Firebase';
+        } finally {
+            barcodeInput.select();
         }
     }
 
-    // الاستماع لأحداث الكتابة، المسح، والضغط على Enter
-    barcodeInput.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') fetchProductInfo(e.target.value);
-    });
-    barcodeInput.addEventListener('change', (e) => fetchProductInfo(e.target.value));
-    barcodeInput.addEventListener('input', (e) => {
-        if (e.target.value.trim().length >= 8) {
-            fetchProductInfo(e.target.value);
+    // إدخال عبر زر Enter أو قارئ الباركود اليدوي (USB)
+    barcodeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            fetchProductInfo(barcodeInput.value);
         }
     });
 
-    // إعداد الكاميرا للمسح الآلي
-    const html5QrCode = new Html5Qrcode("reader");
+    let typingTimer;
+    barcodeInput.addEventListener('input', () => {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            if (barcodeInput.value.trim().length >= 8) {
+                fetchProductInfo(barcodeInput.value);
+            }
+        }, 300);
+    });
 
-    document.getElementById('start-scan-btn').addEventListener('click', () => {
+    // إعداد مسح الكاميرا مع دعم الباركود التجاري
+    document.getElementById('start-scan-btn').addEventListener('click', async () => {
         const readerDiv = document.getElementById('reader');
+        const scanBtn = document.getElementById('start-scan-btn');
+
+        if (html5QrCode && html5QrCode.isScanning) {
+            await html5QrCode.stop();
+            readerDiv.style.display = 'none';
+            scanBtn.textContent = "📷 فتح الكاميرا للمسح الآلي";
+            return;
+        }
+
         readerDiv.style.display = 'block';
+        scanBtn.textContent = "❌ إغلاق الكاميرا";
+
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
+
+        const config = {
+            fps: 20,
+            qrbox: { width: 280, height: 160 },
+            aspectRatio: 1.0,
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            },
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.QR_CODE
+            ]
+        };
 
         html5QrCode.start(
             { facingMode: "environment" },
-            { fps: 15, qrbox: { width: 280, height: 140 } },
+            config,
             (decodedText) => {
                 barcodeInput.value = decodedText;
-                html5QrCode.stop();
-                readerDiv.style.display = 'none';
                 fetchProductInfo(decodedText);
+                html5QrCode.stop().then(() => {
+                    readerDiv.style.display = 'none';
+                    scanBtn.textContent = "📷 فتح الكاميرا للمسح الآلي";
+                });
             },
-            (errorMessage) => {}
+            () => {}
         ).catch(err => {
-            alert("يرجى إعطاء المتصفح صلاحية استخدام الكاميرا");
+            console.error(err);
+            alert("يرجى التأكد من إعطاء صلاحية الكاميرا واستخدام رابط https أونلاين.");
             readerDiv.style.display = 'none';
+            scanBtn.textContent = "📷 فتح الكاميرا للمسح الآلي";
         });
     });
 </script>
