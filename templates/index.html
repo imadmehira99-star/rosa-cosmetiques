@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rosa Cosmétiques - كاشف الأسعار</title>
+    <!-- مكتبة قراءة الباركود عبر الكاميرا -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #121212;
             color: #ffffff;
             display: flex;
@@ -27,8 +30,17 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             text-align: center;
         }
-        .title { color: #e91e63; font-size: 22px; font-weight: bold; margin-bottom: 5px; }
-        .subtitle { color: #aaa; font-size: 13px; margin-bottom: 20px; }
+        .title {
+            color: #e91e63;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #aaa;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
         .btn-camera {
             background-color: #e91e63;
             color: white;
@@ -40,6 +52,10 @@
             cursor: pointer;
             width: 100%;
             margin-bottom: 15px;
+            transition: background 0.2s;
+        }
+        .btn-camera:active {
+            background-color: #c2185b;
         }
         #reader {
             width: 100%;
@@ -66,8 +82,16 @@
             border-radius: 10px;
             text-align: right;
         }
-        .field-label { color: #aaa; font-size: 12px; margin-top: 8px; }
-        .field-value { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+        .field-label {
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .field-value {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
         .price-tag {
             background-color: #880e4f;
             color: #fff;
@@ -86,9 +110,13 @@
     <div class="title">🌹 ROSA COSMÉTIQUES 🌹</div>
     <div class="subtitle">واجهتك الأولى للعناية والجمال - كاشف الأسعار</div>
 
+    <!-- زر فتح الكاميرا -->
     <button type="button" class="btn-camera" id="start-scan-btn">📷 فتح الكاميرا للمسح الآلي</button>
+    
+    <!-- نافذة معاينة الكاميرا -->
     <div id="reader" style="display: none;"></div>
 
+    <!-- حقل إدخال الباركود -->
     <input type="text" id="barcode-input" class="input-box" placeholder="امسح الباركود هنا..." autofocus>
 
     <!-- صندوق عرض النتائج -->
@@ -113,10 +141,19 @@
     const priceVal = document.getElementById('price-val');
     const description = document.getElementById('description');
 
+    // دالة البحث واستدعاء السيرفر
     async function fetchProductInfo(barcode) {
-        if (!barcode || !barcode.trim()) return;
+        const cleanBarcode = barcode.trim();
+        if (!cleanBarcode) return;
+
+        // إظهار حالة البحث للمستخدم
+        nameAr.textContent = 'جاري البحث...';
+        nameFr.textContent = 'Recherche...';
+        priceVal.textContent = '- دج';
+        description.textContent = '-';
+
         try {
-            const response = await fetch(`/get_product?barcode=${encodeURIComponent(barcode.trim())}`);
+            const response = await fetch(`/get_product?barcode=${encodeURIComponent(cleanBarcode)}`);
             const data = await response.json();
 
             if (data.success && data.product) {
@@ -128,16 +165,29 @@
                 nameAr.textContent = 'غير موجود';
                 nameFr.textContent = 'Non trouvé';
                 priceVal.textContent = '- دج';
-                description.textContent = 'لم يتم العثور على هذا المنتج';
+                description.textContent = 'لم يتم العثور على هذا المنتج في قاعدة البيانات';
             }
         } catch (error) {
             console.error('Error fetching product:', error);
+            nameAr.textContent = 'خطأ في الاتصال';
+            nameFr.textContent = 'Erreur serveur';
+            priceVal.textContent = '- دج';
+                description.textContent = 'تأكد من اتصال السيرفر بـ Firebase';
         }
     }
 
-    barcodeInput.addEventListener('input', (e) => fetchProductInfo(e.target.value));
+    // الاستماع لأحداث الكتابة، المسح، والضغط على Enter
+    barcodeInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') fetchProductInfo(e.target.value);
+    });
     barcodeInput.addEventListener('change', (e) => fetchProductInfo(e.target.value));
+    barcodeInput.addEventListener('input', (e) => {
+        if (e.target.value.trim().length >= 8) {
+            fetchProductInfo(e.target.value);
+        }
+    });
 
+    // إعداد الكاميرا للمسح الآلي
     const html5QrCode = new Html5Qrcode("reader");
 
     document.getElementById('start-scan-btn').addEventListener('click', () => {
