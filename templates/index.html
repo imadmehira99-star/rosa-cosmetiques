@@ -3,108 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ROSA COSMÉTIQUES - كاشف الأسعار</title>
+    <title>Rosa Cosmétiques - كاشف الأسعار</title>
+    <!-- مكتبة قراءة الباركود عبر الكاميرا -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #121212; color: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .container { background-color: #1e1e1e; padding: 30px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); width: 100%; max-width: 480px; text-align: center; border: 1px solid #2a2a2a; }
-        h1 { color: #ff4d6d; font-size: 24px; margin-bottom: 8px; }
-        .subtitle { color: #aaa; font-size: 14px; margin-bottom: 24px; }
-        .input-group { margin-bottom: 20px; }
-        input[type="text"] { width: 100%; padding: 14px; border-radius: 8px; border: 2px solid #ff4d6d; background-color: #2a2a2a; color: #fff; font-size: 18px; text-align: center; outline: none; }
-        .status { margin-bottom: 20px; font-size: 14px; min-height: 20px; color: #bbb; }
-        .status.error { color: #ff4d4d; }
-        .status.success-text { color: #2ecc71; }
-        .result-card { background-color: #262626; border-radius: 12px; padding: 20px; border: 1px solid #333; text-align: right; }
-        .info-row { margin-bottom: 12px; font-size: 16px; }
-        .info-label { color: #888; font-size: 14px; margin-bottom: 4px; }
-        .info-value { font-weight: bold; color: #fff; }
-        .price-box { background: linear-gradient(135deg, #800f2f, #590d22); padding: 16px; border-radius: 10px; text-align: center; margin: 16px 0; border: 1px solid #a4133c; }
-        .price-value { font-size: 28px; font-weight: bold; color: #fff; }
-        .currency { font-size: 18px; color: #ff8fa3; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+        }
+        .card {
+            background-color: #1e1e1e;
+            width: 100%;
+            max-width: 420px;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+        .title {
+            color: #e91e63;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #aaa;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .btn-camera {
+            background-color: #e91e63;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #reader {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid #e91e63;
+        }
+        .input-box {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e91e63;
+            background-color: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>🌹 ROSA COSMÉTIQUES 🌹</h1>
-        <div class="subtitle">وجهتك الأولى للعناية والجمال - كاشف الأسعار</div>
+<div class="card">
+    <div class="title">🌹 ROSA COSMÉTIQUES 🌹</div>
+    <div class="subtitle">واجهتك الأولى للعناية والجمال - كاشف الأسعار</div>
 
-        <div class="input-group">
-            <input type="text" id="barcodeInput" placeholder="امسح الباركود هنا..." autofocus autocomplete="off">
-        </div>
+    <!-- زر فتح الكاميرا -->
+    <button type="button" class="btn-camera" id="start-scan-btn">📷 فتح الكاميرا للمسح الآلي</button>
+    
+    <!-- نافذة معاينة الكاميرا -->
+    <div id="reader" style="display: none;"></div>
 
-        <div id="statusMsg" class="status"></div>
+    <!-- حقل إدخال الباركود -->
+    <input type="text" id="barcode-input" class="input-box" placeholder="امسح الباركود هنا..." autofocus>
+</div>
 
-        <div class="result-card">
-            <div class="info-row">
-                <div class="info-label">الاسم (بالعربية):</div>
-                <div id="nameAr" class="info-value">-</div>
-            </div>
+<script>
+    const barcodeInput = document.getElementById('barcode-input');
+    const html5QrCode = new Html5Qrcode("reader");
 
-            <div class="info-row">
-                <div class="info-label">الاسم (بالفرنسية):</div>
-                <div id="nameFr" class="info-value">-</div>
-            </div>
+    document.getElementById('start-scan-btn').addEventListener('click', () => {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
 
-            <div class="price-box">
-                <span id="priceVal" class="price-value">-</span>
-                <span class="currency">دج</span>
-            </div>
+        html5QrCode.start(
+            { facingMode: "environment" }, // الكاميرا الخلفية للهاتف
+            { fps: 15, qrbox: { width: 250, height: 150 } },
+            (decodedText) => {
+                // وضع الكود الممسوح مباشرة داخل مربع النص
+                barcodeInput.value = decodedText;
+                
+                // إيقاف الكاميرا وإخفاء النافذة
+                html5QrCode.stop();
+                readerDiv.style.display = 'none';
 
-            <div class="info-row">
-                <div class="info-label">الوصف:</div>
-                <div id="descVal" class="info-value">-</div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const barcodeInput = document.getElementById('barcodeInput');
-        const statusMsg = document.getElementById('statusMsg');
-        const nameAr = document.getElementById('nameAr');
-        const nameFr = document.getElementById('nameFr');
-        const priceVal = document.getElementById('priceVal');
-        const descVal = document.getElementById('descVal');
-
-        async function fetchProduct(barcode) {
-            statusMsg.className = 'status';
-            statusMsg.textContent = 'جاري البحث عن المنتج...';
-
-            try {
-                const res = await fetch(`/api/product/${barcode}`);
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    nameAr.textContent = data.name_ar || '-';
-                    nameFr.textContent = data.name_fr || '-';
-                    priceVal.textContent = data.price || '-';
-                    descVal.textContent = data.description || '-';
-                    statusMsg.className = 'status success-text';
-                    statusMsg.textContent = 'تم العثور على المنتج بنجاح';
-                } else {
-                    throw new Error(data.message || 'المنتج غير موجود');
-                }
-            } catch (err) {
-                nameAr.textContent = '-';
-                nameFr.textContent = '-';
-                priceVal.textContent = '-';
-                descVal.textContent = '-';
-                statusMsg.className = 'status error';
-                statusMsg.textContent = err.message;
-            }
-        }
-
-        barcodeInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const val = barcodeInput.value.trim();
-                if (val) {
-                    fetchProduct(val);
-                    barcodeInput.value = '';
-                }
-            }
+                // تشغيل حدث البحث تلقائياً
+                barcodeInput.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+            (errorMessage) => { /* جاري البحث عن باركود... */ }
+        ).catch(err => {
+            alert("تأكد من إعطاء الصلاحية للمتصفح لاستخدام الكاميرا");
+            readerDiv.style.display = 'none';
         });
-    </script>
+    });
+</script>
+
 </body>
 </html>
