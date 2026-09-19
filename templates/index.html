@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rosa Cosmétiques - كاشف الأسعار</title>
-    <!-- مكتبة قراءة الباركود عبر الكاميرا -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             background-color: #121212;
             color: #ffffff;
             display: flex;
@@ -30,17 +27,8 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             text-align: center;
         }
-        .title {
-            color: #e91e63;
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .subtitle {
-            color: #aaa;
-            font-size: 13px;
-            margin-bottom: 20px;
-        }
+        .title { color: #e91e63; font-size: 22px; font-weight: bold; margin-bottom: 5px; }
+        .subtitle { color: #aaa; font-size: 13px; margin-bottom: 20px; }
         .btn-camera {
             background-color: #e91e63;
             color: white;
@@ -52,10 +40,6 @@
             cursor: pointer;
             width: 100%;
             margin-bottom: 15px;
-            transition: background 0.2s;
-        }
-        .btn-camera:active {
-            background-color: #c2185b;
         }
         #reader {
             width: 100%;
@@ -82,16 +66,8 @@
             border-radius: 10px;
             text-align: right;
         }
-        .field-label {
-            color: #aaa;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-        .field-value {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
+        .field-label { color: #aaa; font-size: 12px; margin-top: 8px; }
+        .field-value { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
         .price-tag {
             background-color: #880e4f;
             color: #fff;
@@ -110,16 +86,12 @@
     <div class="title">🌹 ROSA COSMÉTIQUES 🌹</div>
     <div class="subtitle">واجهتك الأولى للعناية والجمال - كاشف الأسعار</div>
 
-    <!-- زر فتح الكاميرا -->
     <button type="button" class="btn-camera" id="start-scan-btn">📷 فتح الكاميرا للمسح الآلي</button>
-    
-    <!-- نافذة معاينة الكاميرا -->
     <div id="reader" style="display: none;"></div>
 
-    <!-- حقل إدخال الباركود -->
     <input type="text" id="barcode-input" class="input-box" placeholder="امسح الباركود هنا..." autofocus>
 
-    <!-- منطقة عرض النتيجة -->
+    <!-- صندوق عرض النتائج -->
     <div class="result-box">
         <div class="field-label">الاسم (بالعربية):</div>
         <div class="field-value" id="name-ar">-</div>
@@ -141,14 +113,13 @@
     const priceVal = document.getElementById('price-val');
     const description = document.getElementById('description');
 
-    // دالة البحث عن المنتج عند المسح أو الكتابة
     async function fetchProductInfo(barcode) {
-        if (!barcode.trim()) return;
+        if (!barcode || !barcode.trim()) return;
         try {
-            const response = await fetch(`/get_product?barcode=${encodeURIComponent(barcode)}`);
+            const response = await fetch(`/get_product?barcode=${encodeURIComponent(barcode.trim())}`);
             const data = await response.json();
 
-            if (data.success) {
+            if (data.success && data.product) {
                 nameAr.textContent = data.product.name_ar || '-';
                 nameFr.textContent = data.product.name_fr || '-';
                 priceVal.textContent = `${data.product.price} دج`;
@@ -164,47 +135,25 @@
         }
     }
 
-    // الاستماع لإدخال الباركود اليدوي أو عن طريق القارئ
-    barcodeInput.addEventListener('input', (e) => {
-        fetchProductInfo(e.target.value);
-    });
+    barcodeInput.addEventListener('input', (e) => fetchProductInfo(e.target.value));
+    barcodeInput.addEventListener('change', (e) => fetchProductInfo(e.target.value));
 
-    // إعداد قارئ الكاميرا المتقدم والسريع
     const html5QrCode = new Html5Qrcode("reader");
 
     document.getElementById('start-scan-btn').addEventListener('click', () => {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
 
-        const scanConfig = {
-            fps: 25, // رفع عدد اللقطات إلى 25 إطار/ثانية
-            qrbox: { width: 300, height: 120 }, // أبعاد مستطيلة مخصصة لباركود المستحضرات
-            formatsToSupport: [ // التسرع عبر دعم الباركود التجاري الشائع فقط
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E
-            ],
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true // تفعيل المسرّع البرمجي لعتاد الهواتف
-            }
-        };
-
         html5QrCode.start(
-            { facingMode: "environment" }, // استخدام الكاميرا الخلفية
-            scanConfig,
+            { facingMode: "environment" },
+            { fps: 15, qrbox: { width: 280, height: 140 } },
             (decodedText) => {
                 barcodeInput.value = decodedText;
-                
-                // إيقاف الكاميرا فور المسح
                 html5QrCode.stop();
                 readerDiv.style.display = 'none';
-
-                // تنفيذ البحث الفوري عن المنتج
                 fetchProductInfo(decodedText);
             },
-            (errorMessage) => { /* جاري المسح... */ }
+            (errorMessage) => {}
         ).catch(err => {
             alert("يرجى إعطاء المتصفح صلاحية استخدام الكاميرا");
             readerDiv.style.display = 'none';
